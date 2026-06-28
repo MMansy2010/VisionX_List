@@ -289,20 +289,51 @@ document.addEventListener('DOMContentLoaded', () => {
         const count = Math.min(60, Math.floor(window.innerWidth / 25));
 
         for (let i = 0; i < count; i++) {
+            const baseVx = (Math.random() - 0.5) * 0.3;
+            const baseVy = (Math.random() - 0.5) * 0.3;
             particles.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
-                vx: (Math.random() - 0.5) * 0.3,
-                vy: (Math.random() - 0.5) * 0.3,
+                vx: baseVx,
+                vy: baseVy,
+                baseVx: baseVx,
+                baseVy: baseVy,
                 r: 1 + Math.random() * 1.5,
                 opacity: 0.1 + Math.random() * 0.25,
             });
         }
 
+        const mouse = { x: null, y: null };
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        window.addEventListener('mouseout', () => {
+            mouse.x = null;
+            mouse.y = null;
+        });
+
+        window.addEventListener('click', (e) => {
+            particles.forEach(p => {
+                const dx = p.x - e.clientX;
+                const dy = p.y - e.clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 250) {
+                    const force = (250 - dist) / 250;
+                    p.vx += (dx / dist) * force * 8;
+                    p.vy += (dy / dist) * force * 8;
+                }
+            });
+        });
+
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             particles.forEach((p, i) => {
+                // Apply friction towards base velocity
+                p.vx += (p.baseVx - p.vx) * 0.05;
+                p.vy += (p.baseVy - p.vy) * 0.05;
+
                 p.x += p.vx;
                 p.y += p.vy;
 
@@ -333,6 +364,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         ctx.stroke();
                     }
                 }
+
+                // Interactive with mouse
+                if (mouse.x != null && mouse.y != null) {
+                    const dx = p.x - mouse.x;
+                    const dy = p.y - mouse.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 150) {
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(mouse.x, mouse.y);
+                        const alpha = (1 - dist / 150) * 0.15;
+                        ctx.strokeStyle = `rgba(124, 58, 237, ${alpha})`;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+
+                        // push away slightly
+                        p.x += dx * 0.01;
+                        p.y += dy * 0.01;
+                    }
+                }
             });
 
             requestAnimationFrame(draw);
@@ -348,6 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         entry.target.style.animationPlayState = 'running';
+                        observer.unobserve(entry.target);
                     }
                 });
             },
